@@ -1,64 +1,166 @@
-# Importamos las librerías necesarias
-import tkinter as tk                # Tkinter para la interfaz gráfica
-import serial                       # pyserial para la comunicación con Arduino
-import serial.tools.list_ports      # para listar los puertos disponibles
+import tkinter as tk
+from tkinter import ttk
+import serial
+import serial.tools.list_ports
 
-# --- Funciones ---
+# Colores para modo oscuro
+BG_COLOR = "#000000"
+FG_COLOR = "#f0f0f0"
+ACCENT_COLOR = "#4caf50"
+BUTTON_BG = "#3a3a3a"
+BUTTON_HOVER = "#5cb85c"
+TEXT_BG = "#1e1e1e"
+TEXT_FG = "#dcdcdc"
+ERROR_COLOR = "#e74c3c"
+
+def listar_puertos():
+    puertos = serial.tools.list_ports.comports()
+    lista = [p.device for p in puertos]
+    menu_puertos['values'] = lista
+    if lista:
+        puerto_var.set(lista[0])
+    else:
+        puerto_var.set('')
+
 def conectar():
-    """Intenta abrir la conexión serial con el puerto y baudrate seleccionados."""
-    global ser  # usamos la variable global 'ser'
+    global ser
     try:
-        # Abrimos el puerto serial con los parámetros elegidos
         ser = serial.Serial(puerto_var.get(), int(baud_var.get()), timeout=0)
-        mostrar_datos()              # empezamos a leer datos
-        estado.set("Conectado")      # cambiamos el estado
-    except Exception as e:           # si algo falla, mostramos el error
+        estado.set("Conectado")
+        btn_conectar.config(state='disabled')
+        btn_desconectar.config(state='normal')
+        mostrar_datos()
+    except Exception as e:
         estado.set(f"Error: {e}")
+        label_estado.config(foreground=ERROR_COLOR)
+
+def desconectar():
+    global ser
+    if ser and ser.is_open:
+        ser.close()
+    estado.set("Desconectado")
+    label_estado.config(foreground=FG_COLOR)
+    btn_conectar.config(state='normal')
+    btn_desconectar.config(state='disabled')
 
 def mostrar_datos():
-    """Lee los datos del Arduino y los coloca en la caja de texto."""
-    if ser and ser.is_open:                      # Verifica que el puerto esté abierto
-        data = ser.read(ser.in_waiting or 1)     # Lee datos disponibles (o 1 byte si no hay nada)
-        if data:                                 # Si hay datos recibidos
-            texto.insert("end", data.decode(errors="ignore"))  # Los escribe en el área de texto
-            texto.see("end")                     # Desplaza la vista hacia abajo
-        root.after(100, mostrar_datos)           # Llama de nuevo a esta función cada 100 ms
+    if ser and ser.is_open:
+        data = ser.read(ser.in_waiting or 1)
+        if data:
+            texto.config(state='normal')
+            texto.insert("end", data.decode(errors="ignore"))
+            texto.see("end")
+            texto.config(state='disabled')
+        root.after(100, mostrar_datos)
 
-# --- Interfaz gráfica ---
+def on_enter(e):
+    e.widget['background'] = BUTTON_HOVER
 
-root = tk.Tk()                    # Crea la ventana principal
-root.title("Esp Cereal ")  # Título de la ventana
+def on_leave(e):
+    e.widget['background'] = BUTTON_BG
 
-puerto_var = tk.StringVar()       # Variable para guardar el puerto seleccionado
-baud_var = tk.StringVar(value="115200")  # Variable para guardar el baudrate (por defecto 9600)
-estado = tk.StringVar(value="Desconectado")  # Variable para mostrar el estado
-ser = None                        # Variable global para el objeto Serial
+root = tk.Tk()
+root.title("Robotic Hand Serial")
+root.geometry("650x450")
+root.configure(bg=BG_COLOR)
+root.resizable(False, False)
+root.eval('tk::PlaceWindow . center')
 
-# Botón para actualizar la lista de puertos
-# tk.Button(root, text="Actualizar puertos", command=listar_puertos).pack()
+# Variables
+puerto_var = tk.StringVar()
+baud_var = tk.StringVar(value="115200")
+estado = tk.StringVar(value="Desconectado")
+ser = None
 
-# Menú desplegable para seleccionar puerto
-# menu_puertos = tk.OptionMenu(root, puerto_var, "")
-# menu_puertos.pack()
+# Fuente moderna
+font_label = ("Segoe UI", 11)
+font_entry = ("Segoe UI", 11)
+font_button = ("Segoe UI Semibold", 11)
+font_text = ("Consolas", 11)
 
-menu_puertos=tk.Entry(root, textvariable=puerto_var).pack()
+# Frame configuración
+frame_config = tk.Frame(root, bg=BG_COLOR)
+frame_config.place(x=20, y=20, width=610, height=110)
 
+# Puerto
+label_puerto = tk.Label(frame_config, text="Puerto:", bg=BG_COLOR, fg=FG_COLOR, font=font_label)
+label_puerto.place(x=10, y=10)
 
-# Caja de texto para ingresar el baudrate
-tk.Entry(root, textvariable=baud_var).pack()
+menu_puertos = ttk.Combobox(frame_config, textvariable=puerto_var, state="readonly", width=20, font=font_entry)
+menu_puertos.place(x=80, y=10)
 
-# Botón para conectar
-tk.Button(root, text="Conectar", command=conectar).pack()
+btn_actualizar = tk.Label(frame_config, text="⟳", bg=BUTTON_BG, fg=FG_COLOR, font=("Segoe UI", 14), width=3, cursor="hand2")
+btn_actualizar.place(x=260, y=7)
+btn_actualizar.bind("<Button-1>", lambda e: listar_puertos())
+btn_actualizar.bind("<Enter>", on_enter)
+btn_actualizar.bind("<Leave>", on_leave)
 
-# Caja de texto donde se mostrarán los datos recibidos
-texto = tk.Text(root, height=15, width=60)
-texto.pack()
+# Baudrate
+label_baud = tk.Label(frame_config, text="Baudrate:", bg=BG_COLOR, fg=FG_COLOR, font=font_label)
+label_baud.place(x=10, y=50)
 
-# Etiqueta que muestra el estado (desconectado/conectado/error)
-tk.Label(root, textvariable=estado).pack()
+entry_baud = tk.Entry(frame_config, textvariable=baud_var, font=font_entry, width=23, bg=TEXT_BG, fg=TEXT_FG, insertbackground=FG_COLOR, relief='flat')
+entry_baud.place(x=80, y=50)
 
-# Llenamos la lista de puertos al inicio
-# listar_puertos()
+# Botones conectar/desconectar
+btn_conectar = tk.Label(frame_config, text="Conectar", bg=BUTTON_BG, fg=FG_COLOR, font=font_button, width=15, cursor="hand2", relief='flat')
+btn_conectar.place(x=350, y=10)
+btn_conectar.bind("<Button-1>", lambda e: conectar())
+btn_conectar.bind("<Enter>", on_enter)
+btn_conectar.bind("<Leave>", on_leave)
 
-# Bucle principal de la interfaz
+btn_desconectar = tk.Label(frame_config, text="Desconectar", bg=BUTTON_BG, fg=FG_COLOR, font=font_button, width=15, cursor="hand2", relief='flat', state='disabled')
+btn_desconectar.place(x=350, y=50)
+btn_desconectar.bind("<Button-1>", lambda e: desconectar())
+btn_desconectar.bind("<Enter>", on_enter)
+btn_desconectar.bind("<Leave>", on_leave)
+btn_desconectar.config(state='disabled')
+
+def set_btn_state(btn, state):
+    if state == 'normal':
+        btn.config(state='normal', fg=FG_COLOR)
+    else:
+        btn.config(state='disabled', fg="#555555")
+
+def conectar():
+    global ser
+    try:
+        ser = serial.Serial(puerto_var.get(), int(baud_var.get()), timeout=0)
+        estado.set("Conectado")
+        label_estado.config(fg=ACCENT_COLOR)
+        set_btn_state(btn_conectar, 'disabled')
+        set_btn_state(btn_desconectar, 'normal')
+        mostrar_datos()
+    except Exception as e:
+        estado.set(f"Error: {e}")
+        label_estado.config(fg=ERROR_COLOR)
+
+def desconectar():
+    global ser
+    if ser and ser.is_open:
+        ser.close()
+    estado.set("Desconectado")
+    label_estado.config(fg=FG_COLOR)
+    set_btn_state(btn_conectar, 'normal')
+    set_btn_state(btn_desconectar, 'disabled')
+
+# Frame datos
+frame_datos = tk.Frame(root, bg=BG_COLOR)
+frame_datos.place(x=20, y=150, width=610, height=280)
+
+scrollbar = tk.Scrollbar(frame_datos)
+scrollbar.pack(side='right', fill='y')
+
+texto = tk.Text(frame_datos, height=15, width=70, state='disabled', yscrollcommand=scrollbar.set,
+                bg=TEXT_BG, fg=TEXT_FG, insertbackground=FG_COLOR, font=font_text, relief='flat')
+texto.pack(side='left', fill='both', expand=True)
+scrollbar.config(command=texto.yview)
+
+# Estado
+label_estado = tk.Label(root, textvariable=estado, bg=BG_COLOR, fg=FG_COLOR, font=("Segoe UI", 12, "bold"))
+label_estado.place(x=20, y=440)
+
+# Inicializar puertos
+listar_puertos()
+
 root.mainloop()
