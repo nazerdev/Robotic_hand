@@ -27,7 +27,7 @@ def mostrar_datos():
 # --- Interfaz gráfica ---
 
 root = tk.Tk()                    # Crea la ventana principal
-root.title("Esp Cereal ")  # Título de la ventana
+root.title("Robotic hand Serial ")  # Título de la ventana
 
 puerto_var = tk.StringVar()       # Variable para guardar el puerto seleccionado
 baud_var = tk.StringVar(value="115200")  # Variable para guardar el baudrate (por defecto 9600)
